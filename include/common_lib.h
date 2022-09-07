@@ -5,6 +5,7 @@
 #include <Eigen/Eigen>
 #include <pcl/point_types.h>
 #include <pcl/point_cloud.h>
+#include "msgs.h"
 
 using namespace std;
 using namespace Eigen;

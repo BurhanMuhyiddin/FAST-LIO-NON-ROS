@@ -1,3 +1,0 @@
-/media/burhan/D/all_tasks/FAST-LIO-MODIFIED/build/CMakeFiles/edit_cache.dir
-/media/burhan/D/all_tasks/FAST-LIO-MODIFIED/build/CMakeFiles/rebuild_cache.dir
-/media/burhan/D/all_tasks/FAST-LIO-MODIFIED/build/CMakeFiles/fastlio_mapping.dir

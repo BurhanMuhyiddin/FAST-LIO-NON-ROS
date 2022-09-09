@@ -8,7 +8,21 @@ namespace custom_messages
         unsigned long int sec;
         unsigned long int nsecs;
 
+        void normalizeSecNSec(unsigned long& sec, unsigned long& nsec){
+            unsigned long nsec_part= nsec % 1000000000UL;
+            unsigned long sec_part = nsec / 1000000000UL;
+            sec += sec_part;
+            nsec = nsec_part;
+        }
+
         unsigned long toNsec() const { return (unsigned long)sec*1000000000ull + (unsigned long)nsecs; };
+        Time& fromSec(double t) 
+        { 
+            sec = (unsigned long) floor(t); 
+            nsecs = (unsigned long) round((t-sec) * 1e9);
+            normalizeSecNSec(sec, nsecs);
+            return *this; 
+        };
         double toSec() const { return (double)sec + 1e-9*(double)nsecs; };
     };
 
@@ -63,7 +77,7 @@ namespace custom_messages
 
     struct Pose
     {
-        Point point;
+        Point position;
         Quaternion orientation;
     };
 

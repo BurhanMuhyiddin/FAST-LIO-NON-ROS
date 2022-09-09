@@ -9,6 +9,7 @@ namespace custom_messages
         unsigned long int nsecs;
 
         unsigned long toNsec() const { return (unsigned long)sec*1000000000ull + (unsigned long)nsecs; };
+        double toSec() const { return (double)sec + 1e-9*(double)nsecs; };
     };
 
     // This represents an orientation in free space in quaternion form.

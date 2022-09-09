@@ -23,35 +23,35 @@
 #define MAXN                (720000)
 #define PUBFRAME_PERIOD     (20)
 
-void print_imu_data(const Imu& imu_msg)
-{
-   std::cout << imu_msg.header.seq << " " << imu_msg.header.stamp.sec << " " << imu_msg.header.stamp.nsecs << " " << imu_msg.header.frame_id << std::endl;
-   std::cout << imu_msg.orientation.x << " ";
-   std::cout << imu_msg.orientation.y << " ";
-   std::cout << imu_msg.orientation.z << " ";
-   std::cout << imu_msg.orientation.w << std::endl;
-   for (int i = 0; i < 9; ++i)
-      std::cout << imu_msg.orientation_covariance[i] << " ";
-}
+// void print_imu_data(const Imu& imu_msg)
+// {
+//    std::cout << imu_msg.header.seq << " " << imu_msg.header.stamp.sec << " " << imu_msg.header.stamp.nsecs << " " << imu_msg.header.frame_id << std::endl;
+//    std::cout << imu_msg.orientation.x << " ";
+//    std::cout << imu_msg.orientation.y << " ";
+//    std::cout << imu_msg.orientation.z << " ";
+//    std::cout << imu_msg.orientation.w << std::endl;
+//    for (int i = 0; i < 9; ++i)
+//       std::cout << imu_msg.orientation_covariance[i] << " ";
+// }
 
-void print_lidar_data(PointCloud2 data_)
-{
-   std::cout << data_.height * data_.row_step << std::endl;
-   for (int i = 0; i < data_.height * data_.row_step; ++i)
-   {
-      std::cout << data_.data[i] << "\n";
-      if (i == 10)
-         break;
-   }
-}
+// void print_lidar_data(PointCloud2 data_)
+// {
+//    std::cout << data_.height * data_.row_step << std::endl;
+//    for (int i = 0; i < data_.height * data_.row_step; ++i)
+//    {
+//       std::cout << data_.data[i] << "\n";
+//       if (i == 10)
+//          break;
+//    }
+// }
 
 void read_data(const std::string& data_file)
 {
    fstream file_stream;
    file_stream.open(data_file, ios::in);
 
-   Imu imu_msg;
-   PointCloud2 lidar_msg;
+   custom_messages::Imu imu_msg;
+   custom_messages::PointCloud2 lidar_msg;
    
    if(file_stream.is_open())
    {
@@ -99,7 +99,7 @@ void read_data(const std::string& data_file)
             lidar_msg.fields.clear();
             for (int i = 0; i < field_num; ++i)
             {
-               PointField pf;
+               custom_messages::PointField pf;
                file_stream >> pf.name;
                file_stream >> pf.offset;
                file_stream >> pf.datatype;

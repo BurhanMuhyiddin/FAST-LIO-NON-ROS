@@ -1,13 +1,16 @@
 #ifndef MSGS_H
 #define MSGS_H
 
+typedef unsigned long int uli;
+typedef unsigned short int usi;
+
 namespace custom_messages
 {
     struct Time
     {
-        unsigned long int sec;
-        unsigned long int nsecs;
-
+        Time() = default;
+        Time(Time const&) = default;
+        
         void normalizeSecNSec(unsigned long& sec, unsigned long& nsec){
             unsigned long nsec_part= nsec % 1000000000UL;
             unsigned long sec_part = nsec / 1000000000UL;
@@ -24,11 +27,17 @@ namespace custom_messages
             return *this; 
         };
         double toSec() const { return (double)sec + 1e-9*(double)nsecs; };
+
+        uli sec;
+        uli nsecs;
     };
 
     // This represents an orientation in free space in quaternion form.
     struct Quaternion
     {
+        Quaternion() = default;
+        Quaternion(Quaternion const&) = default;
+
         double x;
         double y;
         double z;
@@ -37,6 +46,9 @@ namespace custom_messages
 
     struct Vector3
     {
+        Vector3() = default;
+        Vector3(Vector3 const&) = default;
+
         double x;
         double y;
         double z;
@@ -45,6 +57,9 @@ namespace custom_messages
     // This contains the position of a point in free space
     struct Point
     {
+        Point() = default;
+        Point(Point const&) = default;
+
         double x;
         double y;
         double z;
@@ -52,37 +67,49 @@ namespace custom_messages
 
     struct PointField
     {
-        const unsigned short int INT8 = 1;
-        const unsigned short int UINT8 = 2;
-        const unsigned short int INT16 = 3;
-        const unsigned short int UINT16 = 4;
-        const unsigned short int INT32 = 5;
-        const unsigned short int UINT32 = 6;
-        const unsigned short int FLOAT32 = 7;
-        const unsigned short int FLOAT64 = 8;
+        PointField() = default;
+        PointField(PointField const&) = default;
+
+        const usi INT8 = 1;
+        const usi UINT8 = 2;
+        const usi INT16 = 3;
+        const usi UINT16 = 4;
+        const usi INT32 = 5;
+        const usi UINT32 = 6;
+        const usi FLOAT32 = 7;
+        const usi FLOAT64 = 8;
 
         std::string name;
-        unsigned long int offset;
-        unsigned short int datatype;
-        unsigned long int count;
+        uli offset;
+        usi datatype;
+        uli count;
     };
 
     // Standard metadata for higher-level stamped data types.
     struct Header
     {
-        unsigned long int seq;
+        Header() = default;
+        Header(Header const&) = default;
+
+        uli seq;
         Time stamp;
         std::string frame_id;
     };
 
     struct Pose
     {
+        Pose() = default;
+        Pose(Pose const&) = default;
+
         Point position;
         Quaternion orientation;
     };
 
     struct Twist
     {
+        Twist() = default;
+        Twist(Twist const&) = default;
+
         Vector3 linear;
         Vector3 angular;
     };
@@ -90,31 +117,76 @@ namespace custom_messages
     // This represents a pose in free space with uncertainty.
     struct PoseWithCovariance
     {
+        PoseWithCovariance() = default;
+        PoseWithCovariance(PoseWithCovariance const&) = default;
+        PoseWithCovariance& operator=(PoseWithCovariance other)
+        {
+            pose = other.pose;
+            for (int i = 0; i < 36; ++i)
+                covariance[i] = other.covariance[i];
+            
+            return *this;
+        }
+
         Pose pose;
         double covariance[36];
     };
 
     struct PoseStamped
     {
+        PoseStamped() = default;
+        PoseStamped(PoseStamped const&) = default;
+
         Header header;
         Pose pose;
     };
 
     struct TwistWithCovariance
     {
+        TwistWithCovariance() = default;
+        TwistWithCovariance(TwistWithCovariance const&) = default;
+
+        TwistWithCovariance& operator=(TwistWithCovariance other)
+        {
+            twist = other.twist;
+            for (int i = 0; i < 36; ++i)
+                covariance[i] = other.covariance[i];
+            
+            return *this;
+        }
+
         Twist twist;
         double covariance[36];
     };
 
     // An array of poses that represents a Path for a robot to follow
-    struct Path
-    {
-        Header header;
-        PoseStamped *poses;
-    };
+    // struct Path
+    // {
+    //     Header header;
+    //     PoseStamped *poses;
+    // };
 
     struct Pose6D
     {
+        Pose6D() = default;
+        Pose6D(Pose6D const&) = default;
+
+        Pose6D& operator=(Pose6D other)
+        {
+            offset_time = other.offset_time;
+            for (int i = 0; i < 3; ++i)
+            {
+                acc[i] = other.acc[i];
+                gyr[i] = other.gyr[i];
+                vel[i] = other.vel[i];
+                pos[i] = other.pos[i];
+            }
+            for (int i = 0; i < 9; ++i)
+                rot[i] = other.rot[i];
+            
+            return *this;
+        }
+
         double offset_time;  // the offset time of IMU measurement w.r.t the first lidar point
         double acc[3];       // the preintegrated total acceleration (global frame) at the Lidar origin
         double gyr[3];       // the unbiased angular velocity (body frame) at the Lidar origin
@@ -125,6 +197,26 @@ namespace custom_messages
 
     struct Imu
     {
+        Imu() = default;
+        Imu(Imu const&) = default;
+
+        Imu& operator=(Imu other)
+        {
+            header = other.header;
+            orientation = other.orientation;
+            for (int i = 0; i < 9; ++i)
+            {
+                orientation_covariance[i] = other.orientation_covariance[i];
+                angular_velocity_covariance[i] = other.angular_velocity_covariance[i];
+                linear_acceleration_covariance[i] = other.linear_acceleration_covariance[i];
+            }
+
+            angular_velocity = other.angular_velocity;
+            linear_acceleration = other.linear_acceleration;
+
+            return *this;
+        }
+
         Header header;
         Quaternion orientation;
         double orientation_covariance[9];
@@ -136,6 +228,9 @@ namespace custom_messages
 
     struct Odometry
     {
+        Odometry() = default;
+        Odometry(Odometry const&) = default;
+
         Header header;
         std::string child_frame_id;
         PoseWithCovariance pose;
@@ -148,14 +243,32 @@ namespace custom_messages
     // contents of the "fields" array.
     struct PointCloud2
     {
+        PointCloud2() = default;
+        PointCloud2(PointCloud2 const&) = default;
+
+        PointCloud2& operator=(PointCloud2 other)
+        {
+            header = other.header;
+            height = other.height;
+            width = other.width;
+            fields = std::move(other.fields);
+            is_bigendian = other.is_bigendian;
+            point_step = other.point_step;
+            row_step = other.row_step;
+            data = std::move(other.data);
+            is_dense = other.is_dense;
+
+            return *this;
+        }
+
         Header header;
-        unsigned long int height;
-        unsigned long int width;
+        uli height;
+        uli width;
         std::vector<PointField> fields;
         bool is_bigendian;
-        unsigned long int point_step;
-        unsigned long int row_step;
-        std::vector<unsigned short int> data;
+        uli point_step;
+        uli row_step;
+        std::vector<usi> data;
         bool is_dense;
     };
 }

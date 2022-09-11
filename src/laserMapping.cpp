@@ -158,7 +158,7 @@ void read_data()
             // print_lidar_data(lidar_msg_cptr);
             // break;
          }
-         // std::this_thread::sleep_for(std::chrono::milliseconds(10));
+         std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
       file_stream.close();
    }
@@ -560,9 +560,9 @@ void publish_odometry()
    odomAftMapped.child_frame_id = "body";
    odomAftMapped.header.stamp = custom_messages::Time().fromSec(lidar_end_time);// ros::Time().fromSec(lidar_end_time);
    set_posestamp(odomAftMapped.pose);
-   //  odomStream << odomAftMapped.pose.pose.position.x << " " << odomAftMapped.pose.pose.position.y << " " << odomAftMapped.pose.pose.position.z << "\n";
-   //  odomStream << odomAftMapped.pose.pose.orientation.x << " " << odomAftMapped.pose.pose.orientation.y << " " << odomAftMapped.pose.pose.orientation.z << " " << odomAftMapped.pose.pose.orientation.w << "\n";
-   std::cout << odomAftMapped.pose.pose.position.x << " " << odomAftMapped.pose.pose.position.y << " " << odomAftMapped.pose.pose.position.z << "\n";
+   odomStream << odomAftMapped.pose.pose.position.x << " " << odomAftMapped.pose.pose.position.y << " " << odomAftMapped.pose.pose.position.z << "\n";
+   odomStream << odomAftMapped.pose.pose.orientation.x << " " << odomAftMapped.pose.pose.orientation.y << " " << odomAftMapped.pose.pose.orientation.z << " " << odomAftMapped.pose.pose.orientation.w << "\n";
+   // std::cout << odomAftMapped.pose.pose.position.x << " " << odomAftMapped.pose.pose.position.y << " " << odomAftMapped.pose.pose.position.z << "\n";
    auto P = kf.get_P();
    for (int i = 0; i < 6; i ++)
    {
@@ -717,6 +717,13 @@ int main(int argc, char** argv)
    extrinsic_est_en              = config["mapping"]["extrinsic_est_en"].as<bool>();
    extrinT                       = config["mapping"]["extrinsic_T"].as<std::vector<double>>();
    extrinR                       = config["mapping"]["extrinsic_R"].as<std::vector<double>>();
+   NUM_MAX_ITERATIONS            = 4;
+   filter_size_corner_min        = 0.5;
+   filter_size_surf_min          = 0.5;
+   filter_size_map_min           = 0.5;
+   cube_len                      = 200;
+   p_pre->point_filter_num       = 2;
+   p_pre->feature_enabled        = false;
 
    //initiate reading file thread
    std::thread data_reading_th(read_data);
@@ -755,11 +762,11 @@ int main(int argc, char** argv)
    while (true)
    {
       if (flg_exit) break;
-      if(sync_packages(Measures)) 
+      if(sync_packages(Measures))
       {
          if (flg_first_scan)
          {
-            std::cout << "I am here 1" << std::endl;
+            // std::cout << "I am here 1" << std::endl;
             first_lidar_time = Measures.lidar_beg_time;
             p_imu->first_lidar_time = first_lidar_time;
             flg_first_scan = false;
@@ -775,46 +782,48 @@ int main(int argc, char** argv)
          svd_time   = 0;
          t0 = omp_get_wtime();
 
-         std::cout << "I am here 2" << std::endl;
+         // std::cout << "I am here 2" << std::endl;
          p_imu->Process(Measures, kf, feats_undistort);
          state_point = kf.get_x();
          pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
 
-         std::cout << "I am here 3" << std::endl;
+         // std::cout << "I am here 3" << std::endl;
 
          // std::cout << "feats_undistort->empty(): " << feats_undistort->empty() << std::endl;
          // std::cout << "feats_undistort == NULL: " << (feats_undistort == NULL) << std::endl;
+         // std::cout << "feats_undistort->size()" << feats_undistort->size() << std::endl;
 
          if (feats_undistort->empty() || (feats_undistort == NULL))
          {
             //  ROS_WARN("No point, skip this scan!\n");
-            std::cout << "I am here 4" << std::endl;
+            // std::cout << "I am here 4" << std::endl;
             continue;
          }
 
          flg_EKF_inited = (Measures.lidar_beg_time - first_lidar_time) < INIT_TIME ? \
                            false : true;
-         std::cout << "I am here 5" << std::endl;
+         // std::cout << "I am here 5" << std::endl;
          /*** Segment the map in lidar FOV ***/
          lasermap_fov_segment();
 
-         std::cout << "I am here 6" << std::endl;
+         // std::cout << "I am here 6" << std::endl;
 
          /*** downsample the feature points in a scan ***/
          downSizeFilterSurf.setInputCloud(feats_undistort);
-         std::cout << "I am here 7" << std::endl;
+         // std::cout << "I am here 7" << std::endl;
          downSizeFilterSurf.filter(*feats_down_body);
-         std::cout << "I am here 8" << std::endl;
+         // std::cout << "I am here 8" << std::endl;
          t1 = omp_get_wtime();
-         std::cout << "I am here 9" << std::endl;
+         // std::cout << "I am here 9" << std::endl;
          feats_down_size = feats_down_body->points.size();
+         // std::cout << "feats_down_size: " << feats_down_size << std::endl;
          /*** initialize the map kdtree ***/
          if(ikdtree.Root_Node == nullptr)
          {
-            std::cout << "I am here 10" << std::endl;
+            // std::cout << "I am here 10" << std::endl;
             if(feats_down_size > 5)
             {
-               std::cout << "I am here 11" << std::endl;
+               // std::cout << "I am here 11" << std::endl;
                ikdtree.set_downsample_param(filter_size_map_min);
                feats_down_world->resize(feats_down_size);
                for(int i = 0; i < feats_down_size; i++)
@@ -827,13 +836,13 @@ int main(int argc, char** argv)
          }
          int featsFromMapNum = ikdtree.validnum();
          kdtree_size_st = ikdtree.size();
-         std::cout << "I am here 12" << std::endl;
+         // std::cout << "I am here 12" << std::endl;
          // cout<<"[ mapping ]: In num: "<<feats_undistort->points.size()<<" downsamp "<<feats_down_size<<" Map num: "<<featsFromMapNum<<"effect num:"<<effct_feat_num<<endl;
 
          /*** ICP and iterated Kalman filter update ***/
          if (feats_down_size < 5)
          {
-            std::cout << "I am here 13" << std::endl;
+            // std::cout << "I am here 13" << std::endl;
             //  ROS_WARN("No point, skip this scan!\n");
             continue;
          }
@@ -842,7 +851,7 @@ int main(int argc, char** argv)
          feats_down_world->resize(feats_down_size);
 
          V3D ext_euler = SO3ToEuler(state_point.offset_R_L_I);
-         std::cout << "I am here 14" << std::endl;
+         // std::cout << "I am here 14" << std::endl;
          if(0) // If you need to see map point, change to "if(1)"
          {
             PointVector ().swap(ikdtree.PCL_Storage);
@@ -858,7 +867,7 @@ int main(int argc, char** argv)
 
          t2 = omp_get_wtime();
 
-         std::cout << "I am here 15" << std::endl;
+         // std::cout << "I am here 15" << std::endl;
          
          /*** iterated state estimation ***/
          double t_update_start = omp_get_wtime();
@@ -883,7 +892,6 @@ int main(int argc, char** argv)
          t5 = omp_get_wtime();
       }
    }
-
    data_reading_th.join(); // wait for the thread to be finished
    odomStream.close();
    return 0;

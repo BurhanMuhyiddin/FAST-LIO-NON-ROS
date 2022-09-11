@@ -2,6 +2,7 @@
 #include <mutex>
 #include <math.h>
 #include <thread>
+#include <chrono>
 #include <fstream>
 #include <csignal>
 #include <unistd.h>
@@ -17,20 +18,26 @@
 #include "preprocess.h"
 #include "msgs.h"
 #include <ikd-Tree/ikd_Tree.h>
+// #include <yaml-cpp/node/node.h>
+#include <yaml-cpp/yaml.h>
+// #include <yaml-cpp/node/parse.h>
 
 #define INIT_TIME           (0.1)
 #define LASER_POINT_COV     (0.001)
 #define MAXN                (720000)
 #define PUBFRAME_PERIOD     (20)
-#define ROOT_DIR             std::string("")
+#define ROOT_DIR             std::string("../")
 #define ODOMETRY_FILE        std::string(ROOT_DIR + std::string("data/odom.txt"))
 #define DATA_FILE            std::string(ROOT_DIR + std::string("data/data.txt"))
+#define CONFIG_FILE          std::string(ROOT_DIR + std::string("config/params.yaml"))
 
 typedef boost::shared_ptr< custom_messages::Imu const> ImuConstPtr;
 typedef boost::shared_ptr< custom_messages::Imu> ImuPtr;
 typedef boost::shared_ptr< custom_messages::PointCloud2 const> PC2ConstPtr;
 
 std::ofstream odomStream;
+
+bool flg_exit = false;
 
 // void print_imu_data(const Imu& imu_msg)
 // {
@@ -43,16 +50,21 @@ std::ofstream odomStream;
 //       std::cout << imu_msg.orientation_covariance[i] << " ";
 // }
 
-// void print_lidar_data(PointCloud2 data_)
-// {
-//    std::cout << data_.height * data_.row_step << std::endl;
-//    for (int i = 0; i < data_.height * data_.row_step; ++i)
-//    {
-//       std::cout << data_.data[i] << "\n";
-//       if (i == 10)
-//          break;
-//    }
-// }
+void print_lidar_data(const PC2ConstPtr &data)
+{
+   // std::cout << data_.height * data_.row_step << std::endl;
+   // for (int i = 0; i < data_.height * data_.row_step; ++i)
+   // {
+   //    std::cout << data_.data[i] << "\n";
+   //    if (i == 10)
+   //       break;
+   // }
+   for (int i = 0; i < 5; i++)
+   {
+      std::cout << data->fields[i].name << std::endl;
+   }
+   
+}
 
 void imu_cbk(const ImuConstPtr &msg_in);
 void standard_pcl_cbk(const PC2ConstPtr &msg);
@@ -62,13 +74,16 @@ void read_data()
    fstream file_stream;
    file_stream.open(DATA_FILE, ios::in);
 
+   std::cout << DATA_FILE << std::endl;
+
    custom_messages::Imu imu_msg;
    custom_messages::PointCloud2 lidar_msg;
    
    if(file_stream.is_open())
    {
+      std::cout << "Started to read the file..." << std::endl;
       std::string word;
-      while (1)
+      while (!flg_exit)
       {
          file_stream >> word;
 
@@ -140,11 +155,16 @@ void read_data()
             // call lidar callback with the message
             PC2ConstPtr lidar_msg_cptr(new custom_messages::PointCloud2(lidar_msg));
             standard_pcl_cbk(lidar_msg_cptr);
-            // print_lidar_data(lidar_msg);
+            // print_lidar_data(lidar_msg_cptr);
             // break;
          }
+         // std::this_thread::sleep_for(std::chrono::milliseconds(10));
       }
       file_stream.close();
+   }
+   else
+   {
+      std::cerr << "File couldn't be opened..." << std::endl;
    }
 }
 
@@ -175,7 +195,7 @@ double cube_len = 0, HALF_FOV_COS = 0, FOV_DEG = 0, total_distance = 0, lidar_en
 int    effct_feat_num = 0, time_log_counter = 0, scan_count = 0, publish_count = 0;
 int    iterCount = 0, feats_down_size = 0, NUM_MAX_ITERATIONS = 0, laserCloudValidNum = 0, pcd_save_interval = -1, pcd_index = 0;
 bool   point_selected_surf[100000] = {0};
-bool   lidar_pushed, flg_first_scan = true, flg_exit = false, flg_EKF_inited;
+bool   lidar_pushed, flg_first_scan = true, flg_EKF_inited;
 bool   scan_pub_en = false, dense_pub_en = false, scan_body_pub_en = false;
 
 vector<vector<int>>  pointSearchInd_surf; 
@@ -358,23 +378,25 @@ void lasermap_fov_segment()
 
 void standard_pcl_cbk(const PC2ConstPtr &msg) 
 {
-    mtx_buffer.lock();
-    scan_count ++;
-    double preprocess_start_time = omp_get_wtime();
-    if (msg->header.stamp.toSec() < last_timestamp_lidar)
-    {
-      //   ROS_ERROR("lidar loop back, clear buffer");
-        lidar_buffer.clear();
-    }
+   mtx_buffer.lock();
+   scan_count ++;
+   double preprocess_start_time = omp_get_wtime();
+   if (msg->header.stamp.toSec() < last_timestamp_lidar)
+   {
+      std::cout << "lidar loop back, clear buffer" << std::endl;
+   //   ROS_ERROR("lidar loop back, clear buffer");
+      lidar_buffer.clear();
+   }
 
-    PointCloudXYZI::Ptr  ptr(new PointCloudXYZI());
-    p_pre->process(msg, ptr);
-    lidar_buffer.push_back(ptr);
-    time_buffer.push_back(msg->header.stamp.toSec());
-    last_timestamp_lidar = msg->header.stamp.toSec();
-    s_plot11[scan_count] = omp_get_wtime() - preprocess_start_time;
-    mtx_buffer.unlock();
-    sig_buffer.notify_all();
+   PointCloudXYZI::Ptr ptr(new PointCloudXYZI());
+   p_pre->process(msg, ptr);
+   std::cout << "Points size: " << ptr->points.size() << std::endl;
+   lidar_buffer.push_back(ptr);
+   time_buffer.push_back(msg->header.stamp.toSec());
+   last_timestamp_lidar = msg->header.stamp.toSec();
+   s_plot11[scan_count] = omp_get_wtime() - preprocess_start_time;
+   mtx_buffer.unlock();
+   sig_buffer.notify_all();
 }
 
 double timediff_lidar_wrt_imu = 0.0;
@@ -415,10 +437,10 @@ double lidar_mean_scantime = 0.0;
 int    scan_num = 0;
 bool sync_packages(MeasureGroup &meas)
 {
+   // std::cout << "Lidar: " << lidar_buffer.size() << ", IMU: " << imu_buffer.size() << std::endl;
    if (lidar_buffer.empty() || imu_buffer.empty()) {
       return false;
    }
-
    /*** push a lidar scan ***/
    if(!lidar_pushed)
    {
@@ -427,6 +449,7 @@ bool sync_packages(MeasureGroup &meas)
       if (meas.lidar->points.size() <= 1) // time too little
       {
          lidar_end_time = meas.lidar_beg_time + lidar_mean_scantime;
+         std::cout << "Too few input point cloud!\n";
          // ROS_WARN("Too few input point cloud!\n");
       }
       else if (meas.lidar->points.back().curvature / double(1000) < 0.5 * lidar_mean_scantime)
@@ -460,7 +483,6 @@ bool sync_packages(MeasureGroup &meas)
       meas.imu.push_back(imu_buffer.front());
       imu_buffer.pop_front();
    }
-
    lidar_buffer.pop_front();
    time_buffer.pop_front();
    lidar_pushed = false;
@@ -676,6 +698,26 @@ int main(int argc, char** argv)
 {
    odomStream.open(ODOMETRY_FILE, std::ios_base::app);
 
+   // read the params.yaml and set the params
+   YAML::Node config = YAML::LoadFile(CONFIG_FILE);
+
+   time_sync_en                  = config["common"]["time_sync_en"].as<bool>();
+   time_diff_lidar_to_imu        = config["common"]["time_offset_lidar_to_imu"].as<double>();
+   p_pre->lidar_type             = config["preprocess"]["lidar_type"].as<int>();
+   p_pre->N_SCANS                = config["preprocess"]["scan_line"].as<int>();
+   p_pre->SCAN_RATE              = config["preprocess"]["scan_rate"].as<int>();
+   p_pre->time_unit              = config["preprocess"]["timestamp_unit"].as<int>();
+   p_pre->blind                  = config["preprocess"]["blind"].as<int>();
+   acc_cov                       = config["mapping"]["acc_cov"].as<double>();
+   gyr_cov                       = config["mapping"]["gyr_cov"].as<double>();
+   b_acc_cov                     = config["mapping"]["b_acc_cov"].as<double>();
+   b_gyr_cov                     = config["mapping"]["b_gyr_cov"].as<double>();
+   fov_deg                       = config["mapping"]["fov_degree"].as<int>();
+   DET_RANGE                     = config["mapping"]["det_range"].as<double>();
+   extrinsic_est_en              = config["mapping"]["extrinsic_est_en"].as<bool>();
+   extrinT                       = config["mapping"]["extrinsic_T"].as<std::vector<double>>();
+   extrinR                       = config["mapping"]["extrinsic_R"].as<std::vector<double>>();
+
    //initiate reading file thread
    std::thread data_reading_th(read_data);
 
@@ -709,6 +751,7 @@ int main(int argc, char** argv)
    kf.init_dyn_share(get_f, df_dx, df_dw, h_share_model, NUM_MAX_ITERATIONS, epsi);
 
    signal(SIGINT, SigHandle);
+
    while (true)
    {
       if (flg_exit) break;
@@ -716,10 +759,11 @@ int main(int argc, char** argv)
       {
          if (flg_first_scan)
          {
-               first_lidar_time = Measures.lidar_beg_time;
-               p_imu->first_lidar_time = first_lidar_time;
-               flg_first_scan = false;
-               continue;
+            std::cout << "I am here 1" << std::endl;
+            first_lidar_time = Measures.lidar_beg_time;
+            p_imu->first_lidar_time = first_lidar_time;
+            flg_first_scan = false;
+            continue;
          }
 
          double t0,t1,t2,t3,t4,t5,match_start, solve_start, svd_time;
@@ -731,49 +775,65 @@ int main(int argc, char** argv)
          svd_time   = 0;
          t0 = omp_get_wtime();
 
+         std::cout << "I am here 2" << std::endl;
          p_imu->Process(Measures, kf, feats_undistort);
          state_point = kf.get_x();
          pos_lid = state_point.pos + state_point.rot * state_point.offset_T_L_I;
 
+         std::cout << "I am here 3" << std::endl;
+
+         // std::cout << "feats_undistort->empty(): " << feats_undistort->empty() << std::endl;
+         // std::cout << "feats_undistort == NULL: " << (feats_undistort == NULL) << std::endl;
+
          if (feats_undistort->empty() || (feats_undistort == NULL))
          {
             //  ROS_WARN("No point, skip this scan!\n");
+            std::cout << "I am here 4" << std::endl;
             continue;
          }
 
          flg_EKF_inited = (Measures.lidar_beg_time - first_lidar_time) < INIT_TIME ? \
                            false : true;
+         std::cout << "I am here 5" << std::endl;
          /*** Segment the map in lidar FOV ***/
          lasermap_fov_segment();
 
+         std::cout << "I am here 6" << std::endl;
+
          /*** downsample the feature points in a scan ***/
          downSizeFilterSurf.setInputCloud(feats_undistort);
+         std::cout << "I am here 7" << std::endl;
          downSizeFilterSurf.filter(*feats_down_body);
+         std::cout << "I am here 8" << std::endl;
          t1 = omp_get_wtime();
+         std::cout << "I am here 9" << std::endl;
          feats_down_size = feats_down_body->points.size();
          /*** initialize the map kdtree ***/
          if(ikdtree.Root_Node == nullptr)
          {
-               if(feats_down_size > 5)
+            std::cout << "I am here 10" << std::endl;
+            if(feats_down_size > 5)
+            {
+               std::cout << "I am here 11" << std::endl;
+               ikdtree.set_downsample_param(filter_size_map_min);
+               feats_down_world->resize(feats_down_size);
+               for(int i = 0; i < feats_down_size; i++)
                {
-                  ikdtree.set_downsample_param(filter_size_map_min);
-                  feats_down_world->resize(feats_down_size);
-                  for(int i = 0; i < feats_down_size; i++)
-                  {
-                     pointBodyToWorld(&(feats_down_body->points[i]), &(feats_down_world->points[i]));
-                  }
-                  ikdtree.Build(feats_down_world->points);
+                  pointBodyToWorld(&(feats_down_body->points[i]), &(feats_down_world->points[i]));
                }
-               continue;
+               ikdtree.Build(feats_down_world->points);
+            }
+            continue;
          }
          int featsFromMapNum = ikdtree.validnum();
          kdtree_size_st = ikdtree.size();
-         
+         std::cout << "I am here 12" << std::endl;
          // cout<<"[ mapping ]: In num: "<<feats_undistort->points.size()<<" downsamp "<<feats_down_size<<" Map num: "<<featsFromMapNum<<"effect num:"<<effct_feat_num<<endl;
 
          /*** ICP and iterated Kalman filter update ***/
          if (feats_down_size < 5)
          {
+            std::cout << "I am here 13" << std::endl;
             //  ROS_WARN("No point, skip this scan!\n");
             continue;
          }
@@ -782,7 +842,7 @@ int main(int argc, char** argv)
          feats_down_world->resize(feats_down_size);
 
          V3D ext_euler = SO3ToEuler(state_point.offset_R_L_I);
-
+         std::cout << "I am here 14" << std::endl;
          if(0) // If you need to see map point, change to "if(1)"
          {
             PointVector ().swap(ikdtree.PCL_Storage);
@@ -797,6 +857,8 @@ int main(int argc, char** argv)
          bool nearest_search_en = true; //
 
          t2 = omp_get_wtime();
+
+         std::cout << "I am here 15" << std::endl;
          
          /*** iterated state estimation ***/
          double t_update_start = omp_get_wtime();

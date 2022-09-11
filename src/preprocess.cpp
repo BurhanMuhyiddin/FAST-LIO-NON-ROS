@@ -1,5 +1,7 @@
 #include "preprocess.h"
 
+ #include <type_traits>
+
 #define RETURN0     0x00
 #define RETURN0AND1 0x10
 
@@ -80,8 +82,13 @@ void Preprocess::process(const PC2ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out)
 void createMapping (const std::vector<pcl::PCLPointField>& msg_fields, MsgFieldMap& field_map)
 {
     // Create initial 1-1 mapping between serialized data segments and struct fields
-    pcl::detail::FieldMapper<velodyne_ros::Point> mapper (msg_fields, field_map);
-    // pcl::for_each_type< typename traits::fieldList<velodyne_ros::Point>::type > (mapper);
+    pcl::detail::FieldMapper<velodyne_ros::Point> mapper(msg_fields, field_map);
+    // for (size_t i = 0; i < mapper.map_.size(); i++)
+    // {
+    //   std::cout << mapper.map_[i] << std::endl;
+    // }
+    
+    pcl::for_each_type< typename pcl::traits::fieldList<velodyne_ros::Point>::type > (mapper);
 
     // Coalesce adjacent fields into single memcpy's where possible
     if (field_map.size() > 1)
@@ -215,7 +222,9 @@ void copyPointCloud2MetaData(const custom_messages::PointCloud2 &pc2, pcl::PCLPo
 void toPCL(const custom_messages::PointCloud2 &pc2, pcl::PCLPointCloud2 &pcl_pc2)
 {
   copyPointCloud2MetaData(pc2, pcl_pc2);
-  unsigned long int size_ = pcl_pc2.data.size();
+  
+  unsigned long int size_ = pc2.data.size();
+  pcl_pc2.data.resize(size_);
   for (size_t i = 0; i < size_; i++)
   {
     pcl_pc2.data[i] = pc2.data[i];
@@ -226,7 +235,8 @@ void fromROSMsg(const custom_messages::PointCloud2 &cloud, pcl::PointCloud<velod
 {
   pcl::PCLPointCloud2 pcl_pc2;
   toPCL(cloud, pcl_pc2);
-  pcl::fromPCLPointCloud2(pcl_pc2, pcl_cloud);
+  
+  fromPCLPointCloud2(pcl_pc2, pcl_cloud);
 }
 
 void Preprocess::velodyne_handler(const PC2ConstPtr &msg)
@@ -237,6 +247,7 @@ void Preprocess::velodyne_handler(const PC2ConstPtr &msg)
 
     pcl::PointCloud<velodyne_ros::Point> pl_orig;
     fromROSMsg(*msg, pl_orig);
+    
     int plsize = pl_orig.points.size();
     if (plsize == 0) return;
     pl_surf.reserve(plsize);
@@ -349,11 +360,12 @@ void Preprocess::velodyne_handler(const PC2ConstPtr &msg)
       for (int i = 0; i < plsize; i++)
       {
         PointType added_pt;
-        // cout<<"!!!!!!"<<i<<" "<<plsize<<endl;
+        // std::cout<<"!!!!!!"<<i<<" "<<plsize<<endl;
         
         added_pt.normal_x = 0;
         added_pt.normal_y = 0;
         added_pt.normal_z = 0;
+        // std::cout << "x: " << pl_orig.points[i].x << ", y: " << pl_orig.points[i].y << ", z: " << pl_orig.points[i].z << std::endl;
         added_pt.x = pl_orig.points[i].x;
         added_pt.y = pl_orig.points[i].y;
         added_pt.z = pl_orig.points[i].z;

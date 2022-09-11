@@ -57,9 +57,11 @@ with open(output_file, 'w') as file:
                 values = []
                 for val in value:
                     values.append(val)
-                file.write(str(values).strip('[]()').replace(",", "")+ '\n')
+                new_str = str(values).strip('[]()').replace(",", "").replace("\'", "")
+                file.write(new_str + '\n')
             else:
-                file.write(str(value).strip('[]()').replace(",", "") + '\n')
+                new_str = str(value).strip('[]()').replace(",", "").replace("\'", "")
+                file.write(new_str + '\n')
             # file.write("{: <20}: {: >0} \n".format(str(key), str(value).strip('[]()')))
         # if topic == lidar_topic:
         #     break

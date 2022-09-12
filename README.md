@@ -17,5 +17,8 @@ $./fastlio_mapping
 > Don't forget to change path to the .txt file in "laserMapping.cpp" in line 31.
 
 ## To-do
-1. Clean the code
-2. Add the functionality of ros spin with defined frequency
+1. Clean the code (partially done)
+2. Add the functionality of ros spin with defined frequency (done)
+3. Verify results (done)
+4. Automatically finish the process when file has been read (done)
+4. Add livox lidar callback support

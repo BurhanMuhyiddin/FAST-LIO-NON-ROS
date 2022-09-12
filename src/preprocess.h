@@ -3,7 +3,6 @@
 #include <pcl/PCLPointCloud2.h>
 #include <pcl/conversions.h>
 #include <pcl/PCLPointField.h>
-
 #include "msgs.h"
 
 using namespace std;

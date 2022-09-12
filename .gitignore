@@ -1,2 +1,6 @@
 **/build
-**/data
+**/data/data.txt
+**/data/fastlio_00_2.txt
+**/data/kitti_2011_09_30_drive_0016_synced_correct.bag
+**/data/kitti_2011_10_03_drive_0027_synced.bag
+**/data/odom.txt

@@ -18,9 +18,7 @@
 #include "preprocess.h"
 #include "msgs.h"
 #include <ikd-Tree/ikd_Tree.h>
-// #include <yaml-cpp/node/node.h>
 #include <yaml-cpp/yaml.h>
-// #include <yaml-cpp/node/parse.h>
 
 #define INIT_TIME           (0.1)
 #define LASER_POINT_COV     (0.001)
@@ -38,6 +36,13 @@ typedef boost::shared_ptr< custom_messages::PointCloud2 const> PC2ConstPtr;
 std::ofstream odomStream;
 
 bool flg_exit = false;
+bool flg_file_finished = false;
+
+mutex mtx_file_read;
+mutex mtx_file_finished;
+
+double msr_freq = 0.0;
+double main_freq = 0.0;
 
 // void print_imu_data(const Imu& imu_msg)
 // {
@@ -50,21 +55,21 @@ bool flg_exit = false;
 //       std::cout << imu_msg.orientation_covariance[i] << " ";
 // }
 
-void print_lidar_data(const PC2ConstPtr &data)
-{
-   // std::cout << data_.height * data_.row_step << std::endl;
-   // for (int i = 0; i < data_.height * data_.row_step; ++i)
-   // {
-   //    std::cout << data_.data[i] << "\n";
-   //    if (i == 10)
-   //       break;
-   // }
-   for (int i = 0; i < 5; i++)
-   {
-      std::cout << data->fields[i].name << std::endl;
-   }
+// void print_lidar_data(const PC2ConstPtr &data)
+// {
+//    // std::cout << data_.height * data_.row_step << std::endl;
+//    // for (int i = 0; i < data_.height * data_.row_step; ++i)
+//    // {
+//    //    std::cout << data_.data[i] << "\n";
+//    //    if (i == 10)
+//    //       break;
+//    // }
+//    for (int i = 0; i < 5; i++)
+//    {
+//       std::cout << data->fields[i].name << std::endl;
+//    }
    
-}
+// }
 
 void imu_cbk(const ImuConstPtr &msg_in);
 void standard_pcl_cbk(const PC2ConstPtr &msg);
@@ -74,6 +79,8 @@ void read_data()
    fstream file_stream;
    file_stream.open(DATA_FILE, ios::in);
 
+   double reading_period = 1000.0 / msr_freq; // in ms
+
    custom_messages::Imu imu_msg;
    custom_messages::PointCloud2 lidar_msg;
    
@@ -81,8 +88,18 @@ void read_data()
    {
       std::cout << "Started to read the file..." << std::endl;
       std::string word;
-      while (!flg_exit)
+      while (true)
       {
+         auto start = std::chrono::high_resolution_clock::now();
+
+         mtx_file_read.lock();
+         if (flg_exit)
+         {
+            mtx_file_read.unlock();
+            break;
+         }
+         mtx_file_read.unlock();
+
          file_stream >> word;
 
          if (word == "---")
@@ -156,7 +173,14 @@ void read_data()
             // print_lidar_data(lidar_msg_cptr);
             // break;
          }
-         std::this_thread::sleep_for(std::chrono::milliseconds(1));
+         auto stop = std::chrono::high_resolution_clock::now();
+         auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
+         while (duration_ < reading_period)
+         {
+            stop = std::chrono::high_resolution_clock::now();
+            duration_ = std::chrono::duration<double, milli>(stop - start).count();
+         }
+         // std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
       file_stream.close();
       std::cout << "Finished reading file..." << std::endl;
@@ -165,6 +189,10 @@ void read_data()
    {
       std::cerr << "File couldn't be opened..." << std::endl;
    }
+
+   mtx_file_finished.lock();
+   flg_file_finished = true;
+   mtx_file_finished.unlock();
 }
 
 /*** Time Log Variables ***/
@@ -242,9 +270,11 @@ shared_ptr<ImuProcess> p_imu(new ImuProcess());
 
 void SigHandle(int sig)
 {
-    flg_exit = true;
+   mtx_file_read.lock();
+   flg_exit = true;
+   mtx_file_read.unlock();
    //  ROS_WARN("catch sig %d", sig);
-    sig_buffer.notify_all();
+   sig_buffer.notify_all();
 }
 
 inline void dump_lio_state_to_log(FILE *fp)  
@@ -702,6 +732,8 @@ int main(int argc, char** argv)
 
    time_sync_en                  = config["common"]["time_sync_en"].as<bool>();
    time_diff_lidar_to_imu        = config["common"]["time_offset_lidar_to_imu"].as<double>();
+   msr_freq                      = config["common"]["msr_freq"].as<double>();
+   main_freq                     = config["common"]["main_freq"].as<double>();
    p_pre->lidar_type             = config["preprocess"]["lidar_type"].as<int>();
    p_pre->N_SCANS                = config["preprocess"]["scan_line"].as<int>();
    p_pre->SCAN_RATE              = config["preprocess"]["scan_rate"].as<int>();
@@ -732,6 +764,8 @@ int main(int argc, char** argv)
    double deltaT, deltaR, aver_time_consu = 0, aver_time_icp = 0, aver_time_match = 0, aver_time_incre = 0, aver_time_solve = 0, aver_time_const_H_time = 0;
    bool flg_EKF_converged, EKF_stop_flg = 0;
 
+   double main_period = 1000 / main_freq; // in ms
+
    FOV_DEG = (fov_deg + 10.0) > 179.9 ? 179.9 : (fov_deg + 10.0);
    HALF_FOV_COS = cos((FOV_DEG) * 0.5 * PI_M / 180.0);
 
@@ -760,7 +794,16 @@ int main(int argc, char** argv)
 
    while (true)
    {
-      if (flg_exit) break;
+      auto start = std::chrono::high_resolution_clock::now();
+      
+      mtx_file_read.lock();
+      if (flg_exit)
+      {
+         mtx_file_read.unlock();
+         break;
+      }
+      mtx_file_read.unlock();
+
       if(sync_packages(Measures))
       {
          if (flg_first_scan)
@@ -890,8 +933,27 @@ int main(int argc, char** argv)
          map_incremental();
          t5 = omp_get_wtime();
       }
+      else
+      {
+         mtx_file_finished.lock();
+         if (flg_file_finished)
+         {
+            mtx_file_finished.unlock();
+            break;
+         }
+         mtx_file_finished.unlock();
+      }
+      auto stop = std::chrono::high_resolution_clock::now();
+      auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
+      while (duration_ < main_period)
+      {
+         stop = std::chrono::high_resolution_clock::now();
+         duration_ = std::chrono::duration<double, milli>(stop - start).count();
+      }
    }
-   data_reading_th.join(); // wait for the thread to be finished
    odomStream.close();
+   data_reading_th.join(); // wait for the thread to be finished
+
+   std::cout << "Process has been finished successfully..." << std::endl;
    return 0;
 }

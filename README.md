@@ -1,4 +1,3 @@
-# Dillinger
 ## About
 
 This repository contains modified FAST-LIO which doesn't depend on ROS. So, it can be easily run in both windows and Colab.

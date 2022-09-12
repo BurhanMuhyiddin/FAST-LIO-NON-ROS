@@ -17,7 +17,5 @@ $./fastlio_mapping
 > Don't forget to change path to the .txt file in "laserMapping.cpp" in line 31.
 
 ## To-do
-
-Dillinger uses a number of open source projects to work properly:
 1. Clean the code
 2. Add the functionality of ros spin with defined frequency

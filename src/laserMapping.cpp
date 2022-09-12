@@ -74,8 +74,6 @@ void read_data()
    fstream file_stream;
    file_stream.open(DATA_FILE, ios::in);
 
-   std::cout << DATA_FILE << std::endl;
-
    custom_messages::Imu imu_msg;
    custom_messages::PointCloud2 lidar_msg;
    
@@ -161,6 +159,7 @@ void read_data()
          std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
       file_stream.close();
+      std::cout << "Finished reading file..." << std::endl;
    }
    else
    {
@@ -390,7 +389,7 @@ void standard_pcl_cbk(const PC2ConstPtr &msg)
 
    PointCloudXYZI::Ptr ptr(new PointCloudXYZI());
    p_pre->process(msg, ptr);
-   std::cout << "Points size: " << ptr->points.size() << std::endl;
+   // std::cout << "Points size: " << ptr->points.size() << std::endl;
    lidar_buffer.push_back(ptr);
    time_buffer.push_back(msg->header.stamp.toSec());
    last_timestamp_lidar = msg->header.stamp.toSec();
@@ -560,8 +559,8 @@ void publish_odometry()
    odomAftMapped.child_frame_id = "body";
    odomAftMapped.header.stamp = custom_messages::Time().fromSec(lidar_end_time);// ros::Time().fromSec(lidar_end_time);
    set_posestamp(odomAftMapped.pose);
-   odomStream << odomAftMapped.pose.pose.position.x << " " << odomAftMapped.pose.pose.position.y << " " << odomAftMapped.pose.pose.position.z << "\n";
-   odomStream << odomAftMapped.pose.pose.orientation.x << " " << odomAftMapped.pose.pose.orientation.y << " " << odomAftMapped.pose.pose.orientation.z << " " << odomAftMapped.pose.pose.orientation.w << "\n";
+   odomStream << odomAftMapped.pose.pose.position.x << ", " << odomAftMapped.pose.pose.position.y << ", " << odomAftMapped.pose.pose.position.z << ", ";
+   odomStream << odomAftMapped.pose.pose.orientation.x << ", " << odomAftMapped.pose.pose.orientation.y << ", " << odomAftMapped.pose.pose.orientation.z << ", " << odomAftMapped.pose.pose.orientation.w << "\n";
    // std::cout << odomAftMapped.pose.pose.position.x << " " << odomAftMapped.pose.pose.position.y << " " << odomAftMapped.pose.pose.position.z << "\n";
    auto P = kf.get_P();
    for (int i = 0; i < 6; i ++)

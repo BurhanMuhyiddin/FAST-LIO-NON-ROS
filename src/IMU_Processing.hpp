@@ -216,7 +216,7 @@ void ImuProcess::UndistortPcl(const MeasureGroup &meas, esekfom::esekf<state_ikf
   /*** sort point clouds by offset time ***/
   pcl_out = *(meas.lidar);
   sort(pcl_out.points.begin(), pcl_out.points.end(), time_list);
-  std::cout << "size: " << pcl_out.points.size() << std::endl;
+  // std::cout << "size: " << pcl_out.points.size() << std::endl;
   // cout<<"[ IMU Process ]: Process lidar from "<<pcl_beg_time<<" to "<<pcl_end_time<<", " \
   //          <<meas.imu.size()<<" imu msgs from "<<imu_beg_time<<" to "<<imu_end_time<<endl;
 
@@ -333,27 +333,27 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
   double t1,t2,t3;
   t1 = omp_get_wtime();
 
-  if(meas.imu.empty()) {std::cout << "Imu is empty" << std::endl; return;};
+  if(meas.imu.empty()) {return;};
   assert(meas.lidar != nullptr);
 //   ROS_ASSERT(meas.lidar != nullptr);
 
   if (imu_need_init_)
   {
     /// The very first lidar frame
-    std::cout << "IMU1" << std::endl;
+    // std::cout << "IMU1" << std::endl;
     IMU_init(meas, kf_state, init_iter_num);
-    std::cout << "IMU2" << std::endl;
+    // std::cout << "IMU2" << std::endl;
     imu_need_init_ = true;
     
     last_imu_   = meas.imu.back();
 
-    std::cout << last_imu_->orientation.x << " " << last_imu_->orientation.y << " " << last_imu_->orientation.z << std::endl; 
+    // std::cout << last_imu_->orientation.x << " " << last_imu_->orientation.y << " " << last_imu_->orientation.z << std::endl; 
 
     state_ikfom imu_state = kf_state.get_x();
-    std::cout << "IMU3" << std::endl;
+    // std::cout << "IMU3" << std::endl;
     if (init_iter_num > MAX_INI_COUNT)
     {
-      std::cout << "IMU4" << std::endl;
+      // std::cout << "IMU4" << std::endl;
       cov_acc *= pow(G_m_s2 / mean_acc.norm(), 2);
       imu_need_init_ = false;
 
@@ -368,11 +368,11 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
     return;
   }
 
-  std::cout << "IMU5" << std::endl;
+  // std::cout << "IMU5" << std::endl;
 
   UndistortPcl(meas, kf_state, *cur_pcl_un_);
 
-  std::cout << "IMU6" << std::endl;
+  // std::cout << "IMU6" << std::endl;
 
   t2 = omp_get_wtime();
   t3 = omp_get_wtime();

@@ -1,7 +1,15 @@
 # FAST-LIO-NON-ROS
-Try to modify the original FAST-LIO implementation, so it will not be ROS dependent. The output will give only odometry results.
+This repository contains modified FAST-LIO which doesn't depend on ROS. So, it can be easily run in both windows and Colab.
 
-To do:
-1. Run the code
-2. Test the results
-3. Clean the code
+# How to build and run
+$ git clone https://github.com/BurhanMuhyiddin/FAST-LIO-NON-ROS.git
+$ go tou the source directory
+$ mkdir build
+$ cd build
+$ cmake ..
+$ make
+$ ./fastlio_mapping
+
+# To-do
+1. Clean the code
+2. Add the functionality of ros spin with defined frequency

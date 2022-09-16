@@ -14,6 +14,7 @@ using namespace std;
 typedef pcl::PointXYZINormal PointType;
 typedef pcl::PointCloud<PointType> PointCloudXYZI;
 typedef boost::shared_ptr< custom_messages::PointCloud2 const> PC2ConstPtr;
+typedef boost::shared_ptr< custom_messages::CustomMsg const> CstMsgConstPtr;
 
 enum LID_TYPE{AVIA = 1, VELO16, OUST64}; //{1, 2, 3}
 enum TIME_UNIT{SEC = 0, MS = 1, US = 2, NS = 3};
@@ -92,7 +93,7 @@ class Preprocess
   Preprocess();
   ~Preprocess();
   
-//   void process(const livox_ros_driver::CustomMsg::ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);
+  void process(const CstMsgConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);
   void process(const PC2ConstPtr &msg, PointCloudXYZI::Ptr &pcl_out);
   void set(bool feat_en, int lid_type, double bld, int pfilt_num);
 
@@ -107,7 +108,7 @@ class Preprocess
 //   ros::Publisher pub_full, pub_surf, pub_corn;
     
   private:
-//   void avia_handler(const livox_ros_driver::CustomMsg::ConstPtr &msg);
+  void avia_handler(const CstMsgConstPtr &msg);
 //   void oust64_handler(const sensor_msgs::PointCloud2::ConstPtr &msg);
   void velodyne_handler(const PC2ConstPtr &msg);
   void give_feature(PointCloudXYZI &pl, vector<orgtype> &types);

@@ -2,6 +2,7 @@
 #define MSGS_H
 
 typedef unsigned long int uli;
+typedef unsigned long long int ulli;
 typedef unsigned short int usi;
 
 namespace custom_messages
@@ -271,6 +272,29 @@ namespace custom_messages
         std::vector<usi> data;
         bool is_dense;
     };
+
+    struct CustomPoint
+    {
+        uli offset_time; // offset time relative to the base time
+        double x; // X axis, unit:m
+        double y; // Y axis, unit:m
+        double z; // Z axis, unit:m
+        usi reflectivity; // reflectivity, 0~255
+        usi tag; // livox tag
+        usi line; // laser number in lidar
+    };
+    
+
+    struct CustomMsg
+    {
+        Header header;
+        ulli timebase;                          // The time of first point
+        uli point_num;                          // Total number of pointclouds
+        usi lidar_id;                           // Lidar device id number
+        usi rsvd[3];                            // Reserved use
+        std::vector<CustomPoint> points;        // Pointcloud data
+    };
+    
 }
 
 #endif

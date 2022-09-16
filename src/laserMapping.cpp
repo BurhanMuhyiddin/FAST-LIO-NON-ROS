@@ -26,12 +26,14 @@
 #define PUBFRAME_PERIOD     (20)
 #define ROOT_DIR             std::string("../")
 #define ODOMETRY_FILE        std::string(ROOT_DIR + std::string("data/odom.txt"))
-#define DATA_FILE            std::string(ROOT_DIR + std::string("data/data.txt"))
-#define CONFIG_FILE          std::string(ROOT_DIR + std::string("config/params.yaml"))
+#define DATA_FILE_VELODYNE   std::string(ROOT_DIR + std::string("data/data_velodyne.txt"))
+#define DATA_FILE_HORIZON    std::string(ROOT_DIR + std::string("data/out_long.txt"))
+#define CONFIG_FILE          std::string(ROOT_DIR + std::string("config/horizon.yaml"))
 
 typedef boost::shared_ptr< custom_messages::Imu const> ImuConstPtr;
 typedef boost::shared_ptr< custom_messages::Imu> ImuPtr;
-typedef boost::shared_ptr< custom_messages::PointCloud2 const> PC2ConstPtr;
+// typedef boost::shared_ptr< custom_messages::PointCloud2 const> PC2ConstPtr;
+// typedef boost::shared_ptr< custom_messages::CustomMsg const> CstMsgConstPtr;
 
 std::ofstream odomStream;
 
@@ -73,11 +75,12 @@ double main_freq = 0.0;
 
 void imu_cbk(const ImuConstPtr &msg_in);
 void standard_pcl_cbk(const PC2ConstPtr &msg);
+void livox_pcl_cbk(const CstMsgConstPtr &msg);
 
-void read_data()
+void read_data_velodyne()
 {
    fstream file_stream;
-   file_stream.open(DATA_FILE, ios::in);
+   file_stream.open(DATA_FILE_VELODYNE, ios::in);
 
    double reading_period = 1000.0 / msr_freq; // in ms
 
@@ -170,6 +173,133 @@ void read_data()
             // call lidar callback with the message
             PC2ConstPtr lidar_msg_cptr(new custom_messages::PointCloud2(lidar_msg));
             standard_pcl_cbk(lidar_msg_cptr);
+            // print_lidar_data(lidar_msg_cptr);
+            // break;
+         }
+         auto stop = std::chrono::high_resolution_clock::now();
+         auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
+         while (duration_ < reading_period)
+         {
+            stop = std::chrono::high_resolution_clock::now();
+            duration_ = std::chrono::duration<double, milli>(stop - start).count();
+         }
+         // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+      }
+      file_stream.close();
+      std::cout << "Finished reading file..." << std::endl;
+   }
+   else
+   {
+      std::cerr << "File couldn't be opened..." << std::endl;
+   }
+
+   mtx_file_finished.lock();
+   flg_file_finished = true;
+   mtx_file_finished.unlock();
+}
+
+void read_data_horizon()
+{
+   fstream file_stream;
+   file_stream.open(DATA_FILE_HORIZON, ios::in);
+
+   double reading_period = 1000.0 / msr_freq; // in ms
+
+   custom_messages::Imu imu_msg;
+   custom_messages::CustomMsg lidar_msg;
+   
+   if(file_stream.is_open())
+   {
+      std::cout << "Started to read the file..." << std::endl;
+      std::string word;
+      while (true)
+      {
+         auto start = std::chrono::high_resolution_clock::now();
+
+         mtx_file_read.lock();
+         if (flg_exit)
+         {
+            mtx_file_read.unlock();
+            break;
+         }
+         mtx_file_read.unlock();
+
+         file_stream >> word;
+
+         if (word == "---")
+         {
+            // std::cout << "I got it" << std::endl;
+            break;
+         }
+
+         if (word == "imu")
+         {
+            long double sec;
+            file_stream >> sec;
+            imu_msg.header.stamp = imu_msg.header.stamp.fromSec(sec);
+            imu_msg.header.seq = 0;
+            imu_msg.header.frame_id = "imu_link";
+            file_stream >> imu_msg.orientation.x;
+            file_stream >> imu_msg.orientation.y;
+            file_stream >> imu_msg.orientation.z;
+            file_stream >> imu_msg.orientation.w;
+            // std::cout << imu_msg.orientation.x << ", " << imu_msg.orientation.y << ", " << imu_msg.orientation.z << ", " << imu_msg.orientation.w << std::endl;
+            for (int i = 0; i < 9; ++i)
+               imu_msg.orientation_covariance[i] = 0.0;
+            file_stream >> imu_msg.angular_velocity.x;
+            file_stream >> imu_msg.angular_velocity.y;
+            file_stream >> imu_msg.angular_velocity.z;
+            // std::cout << imu_msg.angular_velocity.x << ", " << imu_msg.angular_velocity.y << ", " << imu_msg.angular_velocity.z << std::endl;
+            for (int i = 0; i < 9; ++i)
+               imu_msg.angular_velocity_covariance[i] = 0.0;
+            file_stream >> imu_msg.linear_acceleration.x;
+            file_stream >> imu_msg.linear_acceleration.y;
+            file_stream >> imu_msg.linear_acceleration.z;
+            // std::cout << imu_msg.linear_acceleration.x << ", " << imu_msg.linear_acceleration.y << ", " << imu_msg.linear_acceleration.z << std::endl;
+            for (int i = 0; i < 9; ++i)
+               imu_msg.linear_acceleration_covariance[i] = 0.0;
+            // // call imu callback with the message
+            ImuConstPtr imu_msg_cptr(new custom_messages::Imu(imu_msg));
+            imu_cbk(imu_msg_cptr);
+         }
+         else if (word == "lidar")
+         {
+            lidar_msg.header.seq = 0;
+            double sec;
+            file_stream >> sec;
+            lidar_msg.header.stamp = lidar_msg.header.stamp.fromSec(sec);
+            lidar_msg.header.frame_id = "lidar_frame";
+            lidar_msg.timebase = sec * 1e9;
+            lidar_msg.point_num = 0;
+            lidar_msg.lidar_id = 0;
+            for (int i = 0; i < 3; i++)
+               lidar_msg.rsvd[i] = 0;
+            unsigned long int len;
+            file_stream >> len;
+            // std::cout << "len " << len << std::endl;
+
+            lidar_msg.points.clear();
+            for (int i = 0; i < len; ++i)
+            {
+               custom_messages::CustomPoint cp;
+               file_stream >> cp.x;
+               file_stream >> cp.y;
+               file_stream >> cp.z;
+               file_stream >> cp.reflectivity;
+               double offset_time;
+               file_stream >> offset_time;
+               cp.offset_time = offset_time * 1e9;
+               // std::cout << cp.offset_time << std::endl;
+               cp.line = 0;
+               cp.tag = 0;
+               // if (i >= len - 20 && i < len)
+               //    std::cout << cp.x << " " << cp.y << " " << cp.z << " " << cp.reflectivity << " " << cp.offset_time << std::endl;
+               // std::cout << pf.name << pf.offset << pf.datatype << pf.count << std::endl;
+               lidar_msg.points.push_back(cp);
+            }
+            // call lidar callback with the message
+            CstMsgConstPtr lidar_msg_cptr(new custom_messages::CustomMsg(lidar_msg));
+            livox_pcl_cbk(lidar_msg_cptr);
             // print_lidar_data(lidar_msg_cptr);
             // break;
          }
@@ -405,6 +535,44 @@ void lasermap_fov_segment()
     kdtree_delete_time = omp_get_wtime() - delete_begin;
 }
 
+double timediff_lidar_wrt_imu = 0.0;
+bool   timediff_set_flg = false;
+void livox_pcl_cbk(const CstMsgConstPtr &msg) 
+{
+    mtx_buffer.lock();
+    double preprocess_start_time = omp_get_wtime();
+    scan_count ++;
+    if (msg->header.stamp.toSec() < last_timestamp_lidar)
+    {
+        std::cout << "lidar loop back, clear buffer" << std::endl;
+        lidar_buffer.clear();
+    }
+    last_timestamp_lidar = msg->header.stamp.toSec();
+    
+    if (!time_sync_en && abs(last_timestamp_imu - last_timestamp_lidar) > 10.0 && !imu_buffer.empty() && !lidar_buffer.empty() )
+    {
+        printf("IMU and LiDAR not Synced, IMU time: %lf, lidar header time: %lf \n",last_timestamp_imu, last_timestamp_lidar);
+    }
+
+    if (time_sync_en && !timediff_set_flg && abs(last_timestamp_lidar - last_timestamp_imu) > 1 && !imu_buffer.empty())
+    {
+        timediff_set_flg = true;
+        timediff_lidar_wrt_imu = last_timestamp_lidar + 0.1 - last_timestamp_imu;
+        printf("Self sync IMU and LiDAR, time diff is %.10lf \n", timediff_lidar_wrt_imu);
+    }
+
+    PointCloudXYZI::Ptr  ptr(new PointCloudXYZI());
+   //  std::cout << "msg size: " << msg->points.size();
+    p_pre->process(msg, ptr);
+   //  std::cout << "ptr size: " << ptr->points.size() << std::endl;
+    lidar_buffer.push_back(ptr);
+    time_buffer.push_back(last_timestamp_lidar);
+    
+    s_plot11[scan_count] = omp_get_wtime() - preprocess_start_time;
+    mtx_buffer.unlock();
+    sig_buffer.notify_all();
+}
+
 void standard_pcl_cbk(const PC2ConstPtr &msg) 
 {
    mtx_buffer.lock();
@@ -427,9 +595,6 @@ void standard_pcl_cbk(const PC2ConstPtr &msg)
    mtx_buffer.unlock();
    sig_buffer.notify_all();
 }
-
-double timediff_lidar_wrt_imu = 0.0;
-bool   timediff_set_flg = false;
 
 void imu_cbk(const ImuConstPtr &msg_in) 
 {
@@ -727,17 +892,19 @@ int main(int argc, char** argv)
 {
    odomStream.open(ODOMETRY_FILE, std::ios_base::app);
 
-   // read the params.yaml and set the params
+   // read the params from .yaml and set the params
    YAML::Node config = YAML::LoadFile(CONFIG_FILE);
-
+   p_pre->lidar_type             = config["preprocess"]["lidar_type"].as<int>();
+   if (p_pre->lidar_type == 2)
+   {
+      p_pre->SCAN_RATE              = config["preprocess"]["scan_rate"].as<int>();
+      p_pre->time_unit              = config["preprocess"]["timestamp_unit"].as<int>();
+   }
    time_sync_en                  = config["common"]["time_sync_en"].as<bool>();
    time_diff_lidar_to_imu        = config["common"]["time_offset_lidar_to_imu"].as<double>();
    msr_freq                      = config["common"]["msr_freq"].as<double>();
    main_freq                     = config["common"]["main_freq"].as<double>();
-   p_pre->lidar_type             = config["preprocess"]["lidar_type"].as<int>();
    p_pre->N_SCANS                = config["preprocess"]["scan_line"].as<int>();
-   p_pre->SCAN_RATE              = config["preprocess"]["scan_rate"].as<int>();
-   p_pre->time_unit              = config["preprocess"]["timestamp_unit"].as<int>();
    p_pre->blind                  = config["preprocess"]["blind"].as<int>();
    acc_cov                       = config["mapping"]["acc_cov"].as<double>();
    gyr_cov                       = config["mapping"]["gyr_cov"].as<double>();
@@ -757,7 +924,7 @@ int main(int argc, char** argv)
    p_pre->feature_enabled        = false;
 
    //initiate reading file thread
-   std::thread data_reading_th(read_data);
+   std::thread data_reading_th(read_data_horizon);
 
    /*** variables definition ***/
    int effect_feat_num = 0, frame_num = 0;

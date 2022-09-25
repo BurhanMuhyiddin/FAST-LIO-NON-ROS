@@ -22,4 +22,4 @@ $./fastlio_mapping
 2. Add the functionality of ros spin with defined frequency (done)
 3. Verify results (done)
 4. Automatically finish the process when file has been read (done)
-4. Add livox lidar callback support
+4. Add livox lidar callback support (done)

@@ -27,7 +27,9 @@
 #define ROOT_DIR             std::string("../")
 #define ODOMETRY_FILE        std::string(ROOT_DIR + std::string("data/odom.txt"))
 #define DATA_FILE_VELODYNE   std::string(ROOT_DIR + std::string("data/data_velodyne.txt"))
-#define DATA_FILE_HORIZON    std::string(ROOT_DIR + std::string("data/out_long.txt"))
+// #define DATA_FILE_HORIZON    std::string(ROOT_DIR + std::string("data/synch_data.txt"))
+// #define DATA_FILE_HORIZON    std::string("/media/burhan/D/all_tasks/FAST-LIO-MODIFIED/data/converted_odom.txt")
+#define DATA_FILE_HORIZON    std::string("/home/burhan/Desktop/sync_test/synch_data.txt")
 #define CONFIG_FILE          std::string(ROOT_DIR + std::string("config/horizon.yaml"))
 
 typedef boost::shared_ptr< custom_messages::Imu const> ImuConstPtr;
@@ -238,11 +240,11 @@ void read_data_horizon()
             file_stream >> sec;
             imu_msg.header.stamp = imu_msg.header.stamp.fromSec(sec);
             imu_msg.header.seq = 0;
-            imu_msg.header.frame_id = "imu_link";
-            file_stream >> imu_msg.orientation.x;
-            file_stream >> imu_msg.orientation.y;
-            file_stream >> imu_msg.orientation.z;
-            file_stream >> imu_msg.orientation.w;
+            imu_msg.header.frame_id = "livox_frame";
+            imu_msg.orientation.x = 0.0;
+            imu_msg.orientation.y = 0.0;
+            imu_msg.orientation.z = 0.0;
+            imu_msg.orientation.w = 1.0;
             // std::cout << imu_msg.orientation.x << ", " << imu_msg.orientation.y << ", " << imu_msg.orientation.z << ", " << imu_msg.orientation.w << std::endl;
             for (int i = 0; i < 9; ++i)
                imu_msg.orientation_covariance[i] = 0.0;
@@ -268,14 +270,15 @@ void read_data_horizon()
             double sec;
             file_stream >> sec;
             lidar_msg.header.stamp = lidar_msg.header.stamp.fromSec(sec);
-            lidar_msg.header.frame_id = "lidar_frame";
-            lidar_msg.timebase = sec * 1e9;
-            lidar_msg.point_num = 0;
+            lidar_msg.header.frame_id = "livox_frame";
+            // lidar_msg.timebase = sec * 1e9;
+            lidar_msg.timebase = lidar_msg.header.stamp.toNsec();
             lidar_msg.lidar_id = 0;
             for (int i = 0; i < 3; i++)
                lidar_msg.rsvd[i] = 0;
             unsigned long int len;
             file_stream >> len;
+            lidar_msg.point_num = len;
             // std::cout << "len " << len << std::endl;
 
             lidar_msg.points.clear();

@@ -18,7 +18,9 @@
 #include "preprocess.h"
 #include "msgs.h"
 #include <ikd-Tree/ikd_Tree.h>
-#include <yaml-cpp/yaml.h>
+#include <nlohmann/json.hpp>
+
+using json = nlohmann::json;
 
 #define INIT_TIME           (0.1)
 #define LASER_POINT_COV     (0.001)
@@ -30,7 +32,7 @@
 // #define DATA_FILE_HORIZON    std::string(ROOT_DIR + std::string("data/synch_data.txt"))
 // #define DATA_FILE_HORIZON    std::string("/media/burhan/D/all_tasks/FAST-LIO-MODIFIED/data/converted_odom.txt")
 #define DATA_FILE_HORIZON    std::string("/home/burhan/Desktop/sync_test/synch_data.txt")
-#define CONFIG_FILE          std::string(ROOT_DIR + std::string("config/horizon.yaml"))
+#define CONFIG_FILE          std::string(ROOT_DIR + std::string("config/horizon.json"))
 
 typedef boost::shared_ptr< custom_messages::Imu const> ImuConstPtr;
 typedef boost::shared_ptr< custom_messages::Imu> ImuPtr;
@@ -289,12 +291,10 @@ void read_data_horizon()
                file_stream >> cp.y;
                file_stream >> cp.z;
                file_stream >> cp.reflectivity;
-               double offset_time;
-               file_stream >> offset_time;
-               cp.offset_time = offset_time * 1e9;
+               file_stream >> cp.offset_time;
+               file_stream >> cp.line;
                // std::cout << cp.offset_time << std::endl;
-               cp.line = 0;
-               cp.tag = 0;
+               cp.tag = 16;
                // if (i >= len - 20 && i < len)
                //    std::cout << cp.x << " " << cp.y << " " << cp.z << " " << cp.reflectivity << " " << cp.offset_time << std::endl;
                // std::cout << pf.name << pf.offset << pf.datatype << pf.count << std::endl;
@@ -895,29 +895,30 @@ int main(int argc, char** argv)
 {
    odomStream.open(ODOMETRY_FILE, std::ios_base::app);
 
-   // read the params from .yaml and set the params
-   YAML::Node config = YAML::LoadFile(CONFIG_FILE);
-   p_pre->lidar_type             = config["preprocess"]["lidar_type"].as<int>();
+   // read the params from .json and set the params
+   std::ifstream config_f(CONFIG_FILE);
+   json config = json::parse(config_f);
+   p_pre->lidar_type             = config["preprocess"]["lidar_type"].get<int>();
    if (p_pre->lidar_type == 2)
    {
-      p_pre->SCAN_RATE              = config["preprocess"]["scan_rate"].as<int>();
-      p_pre->time_unit              = config["preprocess"]["timestamp_unit"].as<int>();
+      p_pre->SCAN_RATE              = config["preprocess"]["scan_rate"].get<int>();
+      p_pre->time_unit              = config["preprocess"]["timestamp_unit"].get<int>();
    }
-   time_sync_en                  = config["common"]["time_sync_en"].as<bool>();
-   time_diff_lidar_to_imu        = config["common"]["time_offset_lidar_to_imu"].as<double>();
-   msr_freq                      = config["common"]["msr_freq"].as<double>();
-   main_freq                     = config["common"]["main_freq"].as<double>();
-   p_pre->N_SCANS                = config["preprocess"]["scan_line"].as<int>();
-   p_pre->blind                  = config["preprocess"]["blind"].as<int>();
-   acc_cov                       = config["mapping"]["acc_cov"].as<double>();
-   gyr_cov                       = config["mapping"]["gyr_cov"].as<double>();
-   b_acc_cov                     = config["mapping"]["b_acc_cov"].as<double>();
-   b_gyr_cov                     = config["mapping"]["b_gyr_cov"].as<double>();
-   fov_deg                       = config["mapping"]["fov_degree"].as<int>();
-   DET_RANGE                     = config["mapping"]["det_range"].as<double>();
-   extrinsic_est_en              = config["mapping"]["extrinsic_est_en"].as<bool>();
-   extrinT                       = config["mapping"]["extrinsic_T"].as<std::vector<double>>();
-   extrinR                       = config["mapping"]["extrinsic_R"].as<std::vector<double>>();
+   time_sync_en                  = config["common"]["time_sync_en"].get<bool>();
+   time_diff_lidar_to_imu        = config["common"]["time_offset_lidar_to_imu"].get<double>();
+   msr_freq                      = config["common"]["msr_freq"].get<double>();
+   main_freq                     = config["common"]["main_freq"].get<double>();
+   p_pre->N_SCANS                = config["preprocess"]["scan_line"].get<int>();
+   p_pre->blind                  = config["preprocess"]["blind"].get<int>();
+   acc_cov                       = config["mapping"]["acc_cov"].get<double>();
+   gyr_cov                       = config["mapping"]["gyr_cov"].get<double>();
+   b_acc_cov                     = config["mapping"]["b_acc_cov"].get<double>();
+   b_gyr_cov                     = config["mapping"]["b_gyr_cov"].get<double>();
+   fov_deg                       = config["mapping"]["fov_degree"].get<int>();
+   DET_RANGE                     = config["mapping"]["det_range"].get<double>();
+   extrinsic_est_en              = config["mapping"]["extrinsic_est_en"].get<bool>();
+   extrinT                       = config["mapping"]["extrinsic_T"].get<std::vector<double>>();
+   extrinR                       = config["mapping"]["extrinsic_R"].get<std::vector<double>>();
    NUM_MAX_ITERATIONS            = 4;
    filter_size_corner_min        = 0.5;
    filter_size_surf_min          = 0.5;

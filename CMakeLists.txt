@@ -44,6 +44,7 @@ find_path(MATPLOTLIB_CPP_INCLUDE_DIRS "matplotlibcpp.h")
 find_package(Eigen3 REQUIRED)
 find_package(PCL 1.8 REQUIRED)
 FIND_PACKAGE(yaml-cpp REQUIRED)
+find_package(nlohmann_json 3.2.0 REQUIRED)
 
 message(Eigen: ${EIGEN3_INCLUDE_DIR})
 
@@ -55,5 +56,5 @@ include_directories(
   include)
   
 add_executable(fastlio_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
-target_link_libraries(fastlio_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} yaml-cpp)
+target_link_libraries(fastlio_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} yaml-cpp nlohmann_json::nlohmann_json)
 target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})

@@ -1,3 +1,6 @@
+#ifndef IMU_PROCESSING_H_
+#define IMU_PROCESSING_H_
+
 #include <cmath>
 #include <math.h>
 #include <deque>
@@ -380,3 +383,4 @@ void ImuProcess::Process(const MeasureGroup &meas,  esekfom::esekf<state_ikfom, 
   // cout<<"[ IMU Process ]: Time: "<<t3 - t1<<endl;
 }
 
+#endif

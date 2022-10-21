@@ -63,6 +63,11 @@
         "typeindex": "cpp",
         "typeinfo": "cpp",
         "variant": "cpp",
-        "orderingmethods": "cpp"
+        "orderingmethods": "cpp",
+        "any": "cpp",
+        "codecvt": "cpp",
+        "forward_list": "cpp",
+        "unordered_set": "cpp",
+        "valarray": "cpp"
     }
 }

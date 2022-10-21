@@ -7,14 +7,15 @@
 
 using namespace std;
 
+using custom_messages::PC2ConstPtr;
+using custom_messages::CstMsgConstPtr;
+
 #define IS_VALID(a)  ((abs(a)>1e8) ? true : false)
 
 #define IS_VALID(a)  ((abs(a)>1e8) ? true : false)
 
 typedef pcl::PointXYZINormal PointType;
 typedef pcl::PointCloud<PointType> PointCloudXYZI;
-typedef boost::shared_ptr< custom_messages::PointCloud2 const> PC2ConstPtr;
-typedef boost::shared_ptr< custom_messages::CustomMsg const> CstMsgConstPtr;
 
 enum LID_TYPE{AVIA = 1, VELO16, OUST64}; //{1, 2, 3}
 enum TIME_UNIT{SEC = 0, MS = 1, US = 2, NS = 3};

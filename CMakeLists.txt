@@ -55,6 +55,6 @@ include_directories(
   ${PYTHON_INCLUDE_DIRS}
   include)
   
-add_executable(fastlio_mapping src/laserMapping.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
+add_executable(fastlio_mapping src/main.cpp include/ikd-Tree/ikd_Tree.cpp src/preprocess.cpp)
 target_link_libraries(fastlio_mapping ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${PYTHON_LIBRARIES} yaml-cpp nlohmann_json::nlohmann_json)
 target_include_directories(fastlio_mapping PRIVATE ${PYTHON_INCLUDE_DIRS})

@@ -294,7 +294,12 @@ namespace custom_messages
         usi rsvd[3];                            // Reserved use
         std::vector<CustomPoint> points;        // Pointcloud data
     };
-    
+
+    typedef boost::shared_ptr<Imu const> ImuConstPtr;
+    typedef boost::shared_ptr<Imu> ImuPtr;
+    typedef boost::shared_ptr<PointCloud2 const> PC2ConstPtr;
+    typedef boost::shared_ptr<Odometry> OdomMsgPtr;
+    typedef boost::shared_ptr<CustomMsg const> CstMsgConstPtr;
 }
 
 #endif

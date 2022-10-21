@@ -19,7 +19,7 @@ private:
     std::unique_ptr<LaserMapping> laser_mapping;
 };
 
-FastLio::FastLio(/* args */)
+FastLio::FastLio(/* args */) : odom_result(new custom_messages::Odometry)
 {
     laser_mapping = std::make_unique<LaserMapping>();
 }

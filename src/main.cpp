@@ -7,9 +7,14 @@
 #define BASE_PATH   std::string("../")
 #define DATA_PATH   std::string(BASE_PATH + std::string("data/"))
 
+mutex m_stop;
+
+bool is_stop = false;
+
 // read imu and lidar files
 // convert them to the proper format
 // feed them through interface
+double msr_freq = 50.0;
 const int imu_freq = 50;
 const int lidar_freq = 10;
 const int diff_freq = imu_freq / lidar_freq;
@@ -37,9 +42,15 @@ bool parse_file(FastLio &fast_lio)
         double imu_timestamp, gyroX, gyroY, gyroZ, accX, accY, accZ;
         double lidar_timestamp, pX, pY, pZ, pI;
         std::cout << "Started to read the file..." << std::endl;
+        double reading_period = 1000.0 / msr_freq; // in ms
         while (imu_reader.read_row(imu_timestamp, gyroX, gyroY, gyroZ, accX, accY, accZ))
         {
-            std::cout << "IMU" << std::endl;
+            {
+                const std::lock_guard<std::mutex> lock(m_stop);
+                if (is_stop)    break;
+            }
+            auto start = std::chrono::high_resolution_clock::now();
+            // std::cout << "IMU" << std::endl;
             imu_msg.header.stamp = imu_msg.header.stamp.fromSec(imu_timestamp_corrected);
             imu_msg.header.seq = 0;
             imu_msg.header.frame_id = "livox_frame";
@@ -65,7 +76,7 @@ bool parse_file(FastLio &fast_lio)
 
             if (imu_file_counter == 0)
             {
-                std::cout << "LIDAR" << std::endl;
+                // std::cout << "LIDAR" << std::endl;
                 lidar_msg.header.seq = 0;
                 lidar_msg.header.stamp = lidar_msg.header.stamp.fromSec(imu_timestamp_corrected);
                 lidar_msg.header.frame_id = "livox_frame";
@@ -106,6 +117,14 @@ bool parse_file(FastLio &fast_lio)
 
             imu_timestamp_corrected += imu_period;
             imu_file_counter = (imu_file_counter+1)%diff_freq;
+
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
+            while (duration_ < reading_period)
+            {
+                stop = std::chrono::high_resolution_clock::now();
+                duration_ = std::chrono::duration<double, milli>(stop - start).count();
+            }
         }
         return true;
     }
@@ -114,6 +133,12 @@ bool parse_file(FastLio &fast_lio)
         std::cerr << "File couldn't be read successfully..." << std::endl;
         return false;
     }
+}
+
+void SigHandle(int sig)
+{
+    const std::lock_guard<std::mutex> lock(m_stop);
+    is_stop = true;
 }
 
 int main()
@@ -125,17 +150,31 @@ int main()
     // start the thread of parsing file
     std::thread data_reading_th(parse_file, std::ref(fast_lio));
 
+    signal(SIGINT, SigHandle);
+
     // start to process in main thread
     while (true)
     {
+        {
+            const std::lock_guard<std::mutex> lock(m_stop);
+            if (is_stop)    break;
+        }
+        // auto start = std::chrono::high_resolution_clock::now();
         fast_lio.process();
+        // auto stop = std::chrono::high_resolution_clock::now();
+        // auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
+        // std::cout << "Time to process: " << duration_ << " ms" << std::endl;
+
         pose = std::move(fast_lio.get_pose());
+        // std::cout << pose[0] << ", " << pose[1] << ", " << pose[2] << std::endl;
     }
     
     if (data_reading_th.joinable())
     {
         data_reading_th.join();
     }
+
+    std::cout << "Finished processing... Exiting..." << std::endl;
 
     return 0;
 }

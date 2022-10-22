@@ -23,8 +23,9 @@ bool parse_file(FastLio &fast_lio)
     const std::string imu_path = DATA_PATH + std::string("imu/imu.csv");
     const std::string lidar_path = DATA_PATH + std::string("lidar/");
 
-    const int imu_period = double(1.0 / imu_freq); // in s
-    const int lidar_period = double(1.0 / lidar_freq); // in s
+    const double imu_period = double(1.0 / imu_freq); // in s
+    const double lidar_period = double(1.0 / lidar_freq); // in s
+    const double reading_period = 1000.0 / msr_freq; // in ms
 
     custom_messages::Imu imu_msg;
     custom_messages::CustomMsg lidar_msg;
@@ -42,7 +43,6 @@ bool parse_file(FastLio &fast_lio)
         double imu_timestamp, gyroX, gyroY, gyroZ, accX, accY, accZ;
         double lidar_timestamp, pX, pY, pZ, pI;
         std::cout << "Started to read the file..." << std::endl;
-        double reading_period = 1000.0 / msr_freq; // in ms
         while (imu_reader.read_row(imu_timestamp, gyroX, gyroY, gyroZ, accX, accY, accZ))
         {
             {
@@ -98,6 +98,7 @@ bool parse_file(FastLio &fast_lio)
                         lidar_first_sample_timestamp = lidar_timestamp;
                     }
                     custom_messages::CustomPoint cp;
+                    // std::cout << "x: " << pX << ", y: " << pY << ", z: " << pZ << ", i: " << pI << std::endl;
                     cp.x = pX;
                     cp.y = pY;
                     cp.z = pZ;
@@ -152,6 +153,8 @@ int main()
 
     signal(SIGINT, SigHandle);
 
+    const double reading_period = 1000.0 / 5000.0;
+
     // start to process in main thread
     while (true)
     {
@@ -159,14 +162,19 @@ int main()
             const std::lock_guard<std::mutex> lock(m_stop);
             if (is_stop)    break;
         }
-        // auto start = std::chrono::high_resolution_clock::now();
+        auto start = std::chrono::high_resolution_clock::now();
         fast_lio.process();
-        // auto stop = std::chrono::high_resolution_clock::now();
-        // auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
-        // std::cout << "Time to process: " << duration_ << " ms" << std::endl;
 
         pose = std::move(fast_lio.get_pose());
-        // std::cout << pose[0] << ", " << pose[1] << ", " << pose[2] << std::endl;
+        std::cout << pose[0] << ", " << pose[1] << ", " << pose[2] << std::endl;
+        auto stop = std::chrono::high_resolution_clock::now();
+        auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
+        // std::cout << "Time to process: " << duration_ << " ms" << std::endl;
+        while (duration_ < reading_period)
+        {
+            stop = std::chrono::high_resolution_clock::now();
+            duration_ = std::chrono::duration<double, milli>(stop - start).count();
+        }
     }
     
     if (data_reading_th.joinable())

@@ -503,6 +503,7 @@ void LaserMapping::livox_pcl_cbk(const CstMsgConstPtr &msg)
     mtx_buffer.lock();
     double preprocess_start_time = omp_get_wtime();
     scan_count ++;
+    // std::cout << msg->header.stamp.toSec() << std::endl;
     if (msg->header.stamp.toSec() < last_timestamp_lidar)
     {
         std::cout << "lidar loop back, clear buffer" << std::endl;
@@ -572,6 +573,7 @@ bool LaserMapping::sync_packages(MeasureGroup &meas)
 
     // std::cout << "Lidar: " << lidar_buffer.size() << ", IMU: " << imu_buffer.size() << std::endl;
     if (lidar_buffer.empty() || imu_buffer.empty()) {
+        std::cout << "Empttttyyyy..." << std::endl;
         return false;
     }
     /*** push a lidar scan ***/

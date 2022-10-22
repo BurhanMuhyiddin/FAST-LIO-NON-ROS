@@ -573,7 +573,7 @@ bool LaserMapping::sync_packages(MeasureGroup &meas)
 
     // std::cout << "Lidar: " << lidar_buffer.size() << ", IMU: " << imu_buffer.size() << std::endl;
     if (lidar_buffer.empty() || imu_buffer.empty()) {
-        std::cout << "Empttttyyyy..." << std::endl;
+        // std::cout << "Empttttyyyy..." << std::endl;
         return false;
     }
     /*** push a lidar scan ***/

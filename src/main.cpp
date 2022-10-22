@@ -6,6 +6,7 @@
 
 #define BASE_PATH   std::string("../")
 #define DATA_PATH   std::string(BASE_PATH + std::string("data/"))
+#define DATA_FILE_HORIZON    std::string("/home/burhan/Desktop/sync_test/synch_data.txt")
 
 mutex m_stop;
 
@@ -42,7 +43,7 @@ bool parse_file(FastLio &fast_lio)
         imu_reader.read_header(io::ignore_extra_column, "Timesamp", "Gyrox", "Gyroy", "Gyroz", "Accx", "Accy", "Accz");
         double imu_timestamp, gyroX, gyroY, gyroZ, accX, accY, accZ;
         double lidar_timestamp, pX, pY, pZ, pI;
-        std::cout << "Started to read the file..." << std::endl;
+        std::cout << "Started to read data..." << std::endl;
         while (imu_reader.read_row(imu_timestamp, gyroX, gyroY, gyroZ, accX, accY, accZ))
         {
             {
@@ -127,6 +128,11 @@ bool parse_file(FastLio &fast_lio)
                 duration_ = std::chrono::duration<double, milli>(stop - start).count();
             }
         }
+        std::cout << "Finished reading data..." << std::endl;
+        {
+            const std::lock_guard<std::mutex> lock(m_stop);
+            is_stop = true;
+        }
         return true;
     }
     catch(...)
@@ -166,7 +172,8 @@ int main()
         fast_lio.process();
 
         pose = std::move(fast_lio.get_pose());
-        std::cout << pose[0] << ", " << pose[1] << ", " << pose[2] << std::endl;
+        // fast_lio.write_to_file(pose);
+        // std::cout << pose[0] << ", " << pose[1] << ", " << pose[2] << std::endl;
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
         // std::cout << "Time to process: " << duration_ << " ms" << std::endl;

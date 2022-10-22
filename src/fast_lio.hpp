@@ -13,19 +13,22 @@ public:
     void feed_lidar(const CstMsgConstPtr &lidar_data);
     void process();
     std::vector<double> get_pose();
-    
+    void write_to_file(const std::vector<double> &pose);
 private:
     OdomMsgPtr odom_result;
+    ofstream output_file;
     std::unique_ptr<LaserMapping> laser_mapping;
 };
 
-FastLio::FastLio(/* args */) : odom_result(new custom_messages::Odometry)
+FastLio::FastLio(/* args */) : odom_result(new custom_messages::Odometry), output_file("/media/burhan/D/all_tasks/FAST-LIO-MODIFIED/data/output.txt")
 {
     laser_mapping = std::make_unique<LaserMapping>();
 }
 
 FastLio::~FastLio()
 {
+    if (output_file.is_open())
+        output_file.close();
 }
 
 void FastLio::feed_imu(const ImuConstPtr &imu_data)
@@ -54,6 +57,11 @@ std::vector<double> FastLio::get_pose()
     odom.push_back(odom_result->pose.pose.orientation.z);
     odom.push_back(odom_result->pose.pose.orientation.w);
     return odom;
+}
+
+void FastLio::write_to_file(const std::vector<double> &pose)
+{
+    output_file << pose[0] << "," << pose[1] << "," << pose[2] << "\n"; 
 }
 
 #endif

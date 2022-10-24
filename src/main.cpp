@@ -6,7 +6,8 @@
 
 #define BASE_PATH   std::string("../")
 #define DATA_PATH   std::string(BASE_PATH + std::string("data/"))
-#define DATA_FILE_HORIZON    std::string("/home/burhan/Desktop/sync_test/synch_data.txt")
+// #define DATA_FILE_HORIZON    std::string("../data/synch_data.txt") // change path based on your input file
+#define DATA_FILE_HORIZON    std::string("../data/8_shape_path.txt")
 
 mutex m_stop;
 
@@ -19,6 +20,8 @@ double msr_freq = 50.0;
 const int imu_freq = 50;
 const int lidar_freq = 10;
 const int diff_freq = imu_freq / lidar_freq;
+
+/* This is for parsing HITACHI dataset (or any dataset in the proper format from .csv)
 bool parse_file(FastLio &fast_lio)
 {
     const std::string imu_path = DATA_PATH + std::string("imu/imu.csv");
@@ -141,6 +144,132 @@ bool parse_file(FastLio &fast_lio)
         return false;
     }
 }
+*/
+
+// This is for parsing 8_shape trajectory from .txt
+// this is just for testing purposes
+bool parse_file(FastLio &fast_lio)
+{
+    fstream file_stream;
+    file_stream.open(DATA_FILE_HORIZON, ios::in);
+
+    double reading_period = 1000.0 / msr_freq; // in ms
+
+    custom_messages::Imu imu_msg;
+    custom_messages::CustomMsg lidar_msg;
+
+    if(file_stream.is_open())
+    {
+        std::cout << "Started to read the file..." << std::endl;
+        std::string word;
+        while (true)
+        {
+            {
+                const std::lock_guard<std::mutex> lock(m_stop);
+                if (is_stop)    break;
+            }
+            auto start = std::chrono::high_resolution_clock::now();
+
+            file_stream >> word;
+
+            if (word == "---")
+            {
+                break;
+            }
+
+            if (word == "imu")
+            {
+                long double sec;
+                file_stream >> sec;
+                imu_msg.header.stamp = imu_msg.header.stamp.fromSec(sec);
+                imu_msg.header.seq = 0;
+                imu_msg.header.frame_id = "livox_frame";
+                imu_msg.orientation.x = 0.0;
+                imu_msg.orientation.y = 0.0;
+                imu_msg.orientation.z = 0.0;
+                imu_msg.orientation.w = 1.0;
+                // std::cout << imu_msg.orientation.x << ", " << imu_msg.orientation.y << ", " << imu_msg.orientation.z << ", " << imu_msg.orientation.w << std::endl;
+                for (int i = 0; i < 9; ++i)
+                    imu_msg.orientation_covariance[i] = 0.0;
+                file_stream >> imu_msg.angular_velocity.x;
+                file_stream >> imu_msg.angular_velocity.y;
+                file_stream >> imu_msg.angular_velocity.z;
+                // std::cout << imu_msg.angular_velocity.x << ", " << imu_msg.angular_velocity.y << ", " << imu_msg.angular_velocity.z << std::endl;
+                for (int i = 0; i < 9; ++i)
+                    imu_msg.angular_velocity_covariance[i] = 0.0;
+                file_stream >> imu_msg.linear_acceleration.x;
+                file_stream >> imu_msg.linear_acceleration.y;
+                file_stream >> imu_msg.linear_acceleration.z;
+                // std::cout << imu_msg.linear_acceleration.x << ", " << imu_msg.linear_acceleration.y << ", " << imu_msg.linear_acceleration.z << std::endl;
+                for (int i = 0; i < 9; ++i)
+                    imu_msg.linear_acceleration_covariance[i] = 0.0;
+                // // call imu callback with the message
+                ImuConstPtr imu_msg_cptr(new custom_messages::Imu(imu_msg));
+                fast_lio.feed_imu(imu_msg_cptr);
+            }
+            else if (word == "lidar")
+            {
+                lidar_msg.header.seq = 0;
+                double sec;
+                file_stream >> sec;
+                lidar_msg.header.stamp = lidar_msg.header.stamp.fromSec(sec);
+                lidar_msg.header.frame_id = "livox_frame";
+                // lidar_msg.timebase = sec * 1e9;
+                lidar_msg.timebase = lidar_msg.header.stamp.toNsec();
+                lidar_msg.lidar_id = 0;
+                for (int i = 0; i < 3; i++)
+                    lidar_msg.rsvd[i] = 0;
+                unsigned long int len;
+                file_stream >> len;
+                lidar_msg.point_num = len;
+                // std::cout << "len " << len << std::endl;
+
+                lidar_msg.points.clear();
+                for (int i = 0; i < len; ++i)
+                {
+                    custom_messages::CustomPoint cp;
+                    file_stream >> cp.x;
+                    file_stream >> cp.y;
+                    file_stream >> cp.z;
+                    file_stream >> cp.reflectivity;
+                    file_stream >> cp.offset_time;
+                    file_stream >> cp.line;
+                    // std::cout << cp.offset_time << std::endl;
+                    cp.tag = 16;
+                    // if (i >= len - 20 && i < len)
+                    //    std::cout << cp.x << " " << cp.y << " " << cp.z << " " << cp.reflectivity << " " << cp.offset_time << std::endl;
+                    // std::cout << pf.name << pf.offset << pf.datatype << pf.count << std::endl;
+                    lidar_msg.points.push_back(cp);
+                }
+                // call lidar callback with the message
+                CstMsgConstPtr lidar_msg_cptr(new custom_messages::CustomMsg(lidar_msg));
+                fast_lio.feed_lidar(lidar_msg_cptr);
+                // print_lidar_data(lidar_msg_cptr);
+                // break;
+            }
+            auto stop = std::chrono::high_resolution_clock::now();
+            auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
+            while (duration_ < reading_period)
+            {
+                stop = std::chrono::high_resolution_clock::now();
+                duration_ = std::chrono::duration<double, milli>(stop - start).count();
+            }
+        // std::this_thread::sleep_for(std::chrono::milliseconds(1));
+        }
+    }
+    else
+    {
+        return false;
+        std::cerr << "File couldn't be opened..." << std::endl;
+    }
+    {
+        const std::lock_guard<std::mutex> lock(m_stop);
+        is_stop = true;
+    }
+    file_stream.close();
+    std::cout << "Finished reading file..." << std::endl;
+    return true;
+}
 
 void SigHandle(int sig)
 {
@@ -176,6 +305,7 @@ int main()
         // std::cout << pose[0] << ", " << pose[1] << ", " << pose[2] << std::endl;
         auto stop = std::chrono::high_resolution_clock::now();
         auto duration_ = std::chrono::duration<double, milli>(stop - start).count();
+        // fast_lio.write_to_file(duration_);
         // std::cout << "Time to process: " << duration_ << " ms" << std::endl;
         while (duration_ < reading_period)
         {

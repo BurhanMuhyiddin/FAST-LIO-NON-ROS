@@ -14,13 +14,14 @@ public:
     void process();
     std::vector<double> get_pose();
     void write_to_file(const std::vector<double> &pose);
+    void write_to_file(const double &time);
 private:
     OdomMsgPtr odom_result;
-    ofstream output_file;
+    ofstream output_file, exec_time_file;
     std::unique_ptr<LaserMapping> laser_mapping;
 };
 
-FastLio::FastLio(/* args */) : odom_result(new custom_messages::Odometry), output_file("/media/burhan/D/all_tasks/FAST-LIO-MODIFIED/data/output.txt")
+FastLio::FastLio(/* args */) : odom_result(new custom_messages::Odometry), output_file("../data/output.txt"), exec_time_file("../data/time.txt")
 {
     laser_mapping = std::make_unique<LaserMapping>();
 }
@@ -29,6 +30,8 @@ FastLio::~FastLio()
 {
     if (output_file.is_open())
         output_file.close();
+    if (exec_time_file.is_open())
+        exec_time_file.close();
 }
 
 void FastLio::feed_imu(const ImuConstPtr &imu_data)
@@ -62,6 +65,11 @@ std::vector<double> FastLio::get_pose()
 void FastLio::write_to_file(const std::vector<double> &pose)
 {
     output_file << pose[0] << "," << pose[1] << "," << pose[2] << "\n"; 
+}
+
+void FastLio::write_to_file(const double &time)
+{
+    exec_time_file << time << "\n"; 
 }
 
 #endif
